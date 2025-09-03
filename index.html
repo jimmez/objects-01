@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Objects - v1 — Version 1</title>
-<meta name="description" content="Objects slideshow that auto‑fetches photos of objects grouped by locations (Office, Restaurant, Doctor’s office, …, The Moon). Randomly mixes selected locations, shows name + location tag with hide/reveal, seamless swaps. Defaults: 4s slide, 2s reveal." />
+<title>Objects - v1 — Version 1 (Wikidata wired)</title>
+<meta name="description" content="Objects slideshow that auto‑fetches photos of objects grouped by locations (Office, Restaurant, Doctor’s office, …, The Moon) from Wikidata/Commons. Randomly mixes selected locations, shows name + location tag with hide/reveal, seamless swaps. Defaults: 4s slide, 2s reveal." />
 <style>
   :root { --bg:#0b0f14; --fg:#e5eef7; --accent:#60a5fa; --ok:#34d399; --panel:#0f172a; --muted:#9fb7d6; }
   *{box-sizing:border-box}
@@ -178,54 +178,57 @@
     'Library','Gym','Sports stadium','Airport terminal','Train station','Police station','Fire station','Courthouse','Post office','The Moon'
   ];
 
-  /* Map each location to a set of object classes (QIDs) to UNION for richer results */
+  /* Map each location to object classes (QIDs). We'll UNION them and ensure P18 image is required. */
   const MAP_Q = {
-    'Office': ['Q2920921','Q178973','Q14745','Q68'], /* office equipment, stationery, furniture, computer */
-    'Tax office': ['Q2920921','Q178973','Q81163','Q14745'], /* + calculator */
-    'Restaurant': ['Q43169','Q102205','Q319541'], /* kitchen utensil, tableware, household appliance */
-    "Doctor's office": ['Q332003','Q409967','Q14745'], /* medical equipment, medical instrument (backup), furniture */
+    'Office': ['Q2920921','Q178973','Q14745','Q68'],
+    'Tax office': ['Q2920921','Q178973','Q81163','Q14745'],
+    'Restaurant': ['Q43169','Q102205','Q319541'],
+    "Doctor's office": ['Q332003','Q409967','Q14745'],
     'Hospital': ['Q332003','Q409967','Q14745'],
-    'School classroom': ['Q178973','Q213642','Q106900'], /* stationery, desk, bookcase */
-    'University lab': ['Q1183543','Q173394','Q319541'], /* scientific instrument, lab glassware, appliance */
-    'Construction site': ['Q39546','Q1027340','Q153556'], /* tool, construction equipment, PPE */
-    'Factory floor': ['Q11016','Q16961420','Q1980186'], /* machine tool, industrial robot, conveyor belt */
-    'Warehouse': ['Q275688','Q19530','Q1980186'], /* forklift, pallet, conveyor belt */
-    'Supermarket': ['Q1351597','Q1145158','Q1980186'], /* shopping cart, display case, conveyor */
-    'Bakery': ['Q43169','Q132390','Q2575179'], /* kitchen utensil, oven, stand mixer */
-    'Home kitchen': ['Q43169','Q246780','Q11409'], /* utensils, small appliance, refrigerator */
-    'Coffee shop': ['Q600841','Q106909','Q43169'], /* espresso machine, coffee grinder, utensil (backup) */
-    'Bar / pub': ['Q806536','Q170783','Q102205'], /* beer tap, cocktail shaker, glass/tableware */
-    'Theater stage': ['Q188748','Q740563','Q19757'], /* spotlight, stage lighting instrument, microphone */
-    'Film set': ['Q11197','Q213288','Q49765'], /* movie camera, clapperboard, boom microphone */
-    'Music studio': ['Q133067','Q19757','Q9415'], /* audio mixer, microphone, loudspeaker */
-    'Art studio': ['Q148094','Q1347431','Q1074483'], /* paintbrush, easel, palette */
-    'Museum gallery': ['Q1145158','Q860861'], /* display case, sculpture (as object in galleries) */
-    'Library': ['Q106900','Q1673','Q178973'], /* bookcase, book, stationery */
-    'Gym': ['Q210506','Q170202','Q216254'], /* treadmill, dumbbell, barbell */
-    'Sports stadium': ['Q192439','Q11641'], /* sports equipment, scoreboard */
-    'Airport terminal': ['Q186507','Q3545703','Q18068927'], /* jet bridge, baggage carousel, baggage cart */
-    'Train station': ['Q1275473','Q212379'], /* ticket machine, turnstile */
-    'Police station': ['Q214063','Q83360'], /* police car, handcuffs */
-    'Fire station': ['Q1405','Q190573'], /* fire engine, extinguisher */
-    'Courthouse': ['Q133027','Q1073528'], /* gavel, witness stand */
-    'Post office': ['Q148853','Q124905'], /* post box, postage stamp */
-    'The Moon': ['Q2900945','Q270534','Q1076575'] /* lunar rover, lunar module, spacesuit */
+    'School classroom': ['Q178973','Q213642','Q106900'],
+    'University lab': ['Q1183543','Q173394','Q319541'],
+    'Construction site': ['Q39546','Q1027340','Q153556'],
+    'Factory floor': ['Q11016','Q16961420','Q1980186'],
+    'Warehouse': ['Q275688','Q19530','Q1980186'],
+    'Supermarket': ['Q1351597','Q1145158','Q1980186'],
+    'Bakery': ['Q43169','Q132390','Q2575179'],
+    'Home kitchen': ['Q43169','Q246780','Q11409'],
+    'Coffee shop': ['Q600841','Q106909','Q43169'],
+    'Bar / pub': ['Q806536','Q170783','Q102205'],
+    'Theater stage': ['Q188748','Q740563','Q19757'],
+    'Film set': ['Q11197','Q213288','Q49765'],
+    'Music studio': ['Q133067','Q19757','Q9415'],
+    'Art studio': ['Q148094','Q1347431','Q1074483'],
+    'Museum gallery': ['Q1145158','Q860861'],
+    'Library': ['Q106900','Q1673','Q178973'],
+    'Gym': ['Q210506','Q170202','Q216254'],
+    'Sports stadium': ['Q192439','Q11641'],
+    'Airport terminal': ['Q186507','Q3545703','Q18068927'],
+    'Train station': ['Q1275473','Q212379'],
+    'Police station': ['Q214063','Q83360'],
+    'Fire station': ['Q1405','Q190573'],
+    'Courthouse': ['Q133027','Q1073528'],
+    'Post office': ['Q148853','Q124905'],
+    'The Moon': ['Q2900945','Q270534','Q1076575']
   };
 
-  function T(lines){ return `{ ?thing ${lines.join(' ')} wdt:P18 ?image . BIND(?thing AS ?entity) }`; }
-
+  /* SPARQL helpers */
   function blockForLocation(label){
     const qids = MAP_Q[label] || [];
-    if(!qids.length){ // fallback to generic "object"
-      return T([ ' wdt:P31/wdt:P279* wd:Q488383 . ' ]);
+    if(!qids.length){
+      // generic "object" fallback with image
+      return `{ ?thing wdt:P31/wdt:P279* wd:Q488383 ; wdt:P18 ?image . BIND(?thing AS ?entity) }`;
     }
-    const parts = qids.map(q=> `{ ?thing wdt:P31/wdt:P279* wd:${q} . }`).join(' UNION ');
-    return `{ ${parts} } BIND(?thing AS ?entity)`;
+    const union = qids.map(q=> `{ ?thing wdt:P31/wdt:P279* wd:${q} . }`).join(' UNION ');
+    // IMPORTANT: bind ?thing once and require image (P18) outside the UNION
+    return `{ { ${union} } ?thing wdt:P18 ?image . BIND(?thing AS ?entity) }`;
   }
 
-  /* Build query and fetch */
   function buildQuery(block, limit=240){
-    return `SELECT ?entity ?entityLabel ?image WHERE {\n${block}\nSERVICE wikibase:label { bd:serviceParam wikibase:language "nb,nn,no,en". }\n} LIMIT ${limit}`;
+    return `SELECT ?entity ?entityLabel ?image WHERE {
+${block}
+SERVICE wikibase:label { bd:serviceParam wikibase:language \"nb,nn,no,en\". }
+} LIMIT ${limit}`;
   }
 
   async function sparqlQuery(query){
@@ -295,10 +298,8 @@
   }
 
   // Distribute 30 locations across 3 pages (~10 each)
-  LOCATIONS.forEach((label, i)=>{
-    const target = i<10 ? gridLoc1 : (i<20 ? gridLoc2 : gridLoc3);
-    makeTile(label, target);
-  });
+  const pages=[gridLoc1,gridLoc2,gridLoc3];
+  LOCATIONS.forEach((label, i)=>{ makeTile(label, pages[Math.min(2, Math.floor(i/10))]); });
 
   /* Selection helpers */
   function selectedFrom(gridEl){ return [...gridEl.querySelectorAll('.termBtn.selected')].map(b=> b.dataset.term||b.textContent.trim()); }
@@ -329,7 +330,7 @@
     for(const label of chosen){
       try{
         const block = blockForLocation(label);
-        const q = buildQuery(block, 240); // try to get 40+ if possible
+        const q = buildQuery(block, 240); // aim to get 40+ if possible
         const data = await sparqlQuery(q);
         if(gen!==fetchGen) return;
         const rows=(data.results.bindings||[]).map(r=> normalizeRow(r, label)).filter(Boolean);
@@ -411,7 +412,7 @@
     if(key==='s'){ e.preventDefault(); perSlideReveal=true; nameBar.classList.remove('collapsed'); return; }
 
     const leftSet=new Set(['`','1','2','3','4','5','q','w','e','r','t','a','s','d','f','g','z','x','c','v','b']);
-    const rightSet=new Set(['6','7','8','9','0','-','=', 'y','u','i','o','p','[',']','\\','h','j','k','l',';','\'','n','m',',','.','/']);
+    const rightSet=new Set(['6','7','8','9','0','-','=', 'y','u','i','o','p','[',']','\','h','j','k','l',';','\'','n','m',',','.','/']);
 
     if(rightSet.has(key)){ stopAutoplay(); next(); return; }
     if(leftSet.has(key)){ stopAutoplay(); prev(); return; }
@@ -436,7 +437,8 @@
   document.getElementById('clearAll4').onclick=clearAll;
 
   /* Boot: preselect Office + apply */
-  const officeBtn=[...document.querySelectorAll('#gridLoc1 .termBtn,#gridLoc2 .termBtn,#gridLoc3 .termBtn')].find(b=> (b.dataset.term||b.textContent)==='Office');
+  const firstTiles=[...document.querySelectorAll('#gridLoc1 .termBtn,#gridLoc2 .termBtn,#gridLoc3 .termBtn')];
+  const officeBtn=firstTiles.find(b=> (b.dataset.term||b.textContent)==='Office');
   if(officeBtn) officeBtn.classList.add('selected');
   applySelection();
 })();
