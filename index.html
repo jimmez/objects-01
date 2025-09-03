@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Slideshow v30 — Wikidata/Commons</title>
-<meta name="description" content="Auto-fetch slideshow. Actors default. Nationality × Occupation intersection (e.g., Swedish + Actors). PC: right-side keys next, left-side previous, S reveals this slide. Auto-apply categories." />
+<title>Objects - v1 — Version 1</title>
+<meta name="description" content="Objects slideshow that auto‑fetches photos of objects grouped by locations (Office, Restaurant, Doctor’s office, …, The Moon). Randomly mixes selected locations, shows name + location tag with hide/reveal, seamless swaps. Defaults: 4s slide, 2s reveal." />
 <style>
   :root { --bg:#0b0f14; --fg:#e5eef7; --accent:#60a5fa; --ok:#34d399; --panel:#0f172a; --muted:#9fb7d6; }
   *{box-sizing:border-box}
@@ -70,7 +70,7 @@
 </head>
 <body>
   <header>
-    <h1>🎞️ Slideshow (v30)</h1>
+    <h1>🧰 Objects - v1 — <span style="opacity:.8">Version 1</span></h1>
     <span class="badge" id="countBadge">0 photos</span>
     <div class="sp"></div>
     <div class="topRight">
@@ -81,9 +81,9 @@
 
   <nav class="tabs" role="tablist">
     <button class="tab" role="tab" aria-controls="page1" aria-selected="true" id="tab1">Page 1: Slideshow</button>
-    <button class="tab" role="tab" aria-controls="page2" aria-selected="false" id="tab2">Page 2: Occupations</button>
-    <button class="tab" role="tab" aria-controls="page3" aria-selected="false" id="tab3">Page 3: Nationalities</button>
-    <button class="tab" role="tab" aria-controls="page4" aria-selected="false" id="tab4">Page 4: Characters & Objects</button>
+    <button class="tab" role="tab" aria-controls="page2" aria-selected="false" id="tab2">Page 2: Locations A</button>
+    <button class="tab" role="tab" aria-controls="page3" aria-selected="false" id="tab3">Page 3: Locations B</button>
+    <button class="tab" role="tab" aria-controls="page4" aria-selected="false" id="tab4">Page 4: Locations C</button>
     <button class="tab" role="tab" aria-controls="page5" aria-selected="false" id="tab5">Page 5: Settings</button>
   </nav>
 
@@ -115,21 +115,21 @@
 
     <section id="page2" class="page" role="tabpanel" aria-labelledby="tab2">
       <div class="builder">
-        <div class="grid" id="gridOcc"></div>
-        <div class="rowActions"><button class="btn" id="clearAll2" title="Clear all selections">Clear All</button></div>
+        <div class="grid" id="gridLoc1"></div>
+        <div class="rowActions"><button class="btn" id="clearAll2">Clear All</button></div>
       </div>
     </section>
 
     <section id="page3" class="page" role="tabpanel" aria-labelledby="tab3">
       <div class="builder">
-        <div class="grid" id="gridNat"></div>
+        <div class="grid" id="gridLoc2"></div>
         <div class="rowActions"><button class="btn" id="clearAll3">Clear All</button></div>
       </div>
     </section>
 
     <section id="page4" class="page" role="tabpanel" aria-labelledby="tab4">
       <div class="builder">
-        <div class="grid" id="gridObj"></div>
+        <div class="grid" id="gridLoc3"></div>
         <div class="rowActions"><button class="btn" id="clearAll4">Clear All</button></div>
       </div>
     </section>
@@ -137,9 +137,9 @@
     <section id="page5" class="page" role="tabpanel" aria-labelledby="tab5">
       <div class="builder" style="max-width:720px; display:grid; gap:12px">
         <div><strong>Slide speed</strong> (seconds)</div>
-        <input id="speedInput" type="number" step="0.2" min="0.2" value="5" />
+        <input id="speedInput" type="number" step="0.2" min="0.2" value="4" />
         <div><strong>Name reveal delay</strong> (seconds)</div>
-        <input id="revealInput" type="number" step="0.2" min="0" value="3" />
+        <input id="revealInput" type="number" step="0.2" min="0" value="2" />
         <div class="rowActions">
           <button class="btn" id="applySettings">Apply settings</button>
           <span id="settingsNote" style="color:#9fb7d6"></span>
@@ -171,114 +171,61 @@
   document.addEventListener('touchstart', e=>{ const t=e.touches[0]; tStart={x:t.clientX,y:t.clientY}; }, {passive:true});
   document.addEventListener('touchend', e=>{ if(!tStart) return; const t=e.changedTouches[0]; const dx=t.clientX-tStart.x, dy=t.clientY-tStart.y; if(Math.abs(dx)>40 && Math.abs(dy)<60){ const i=activePageIndex()+1; if(dx<0 && i<5) setPage(i+1); if(dx>0 && i>1) setPage(i-1); } tStart=null; }, {passive:true});
 
-  /* Presets */
-  const OCC = { 'Actors':'Q33999','Singers':'Q177220','Musicians':'Q639669','Writers':'Q36180','Models':'Q4610556','Politicians':'Q82955','Directors':'Q2526255','Comedians':'Q245068','Scientists':'Q901','Inventors':'Q131524' };
-  const NAT = { 'Norwegian':'Q20','Swedish':'Q34','Danish':'Q35','German':'Q183','French':'Q142','Spanish':'Q29','British':'Q145','American':'Q30' };
-  const OBJ = [ 'Famous movie characters','Famous cartoon characters','Superheroes','Video game characters','Cars','Musical instruments','Tools','Household appliances' ];
+  /* Locations list (30) */
+  const LOCATIONS = [
+    'Office','Tax office','Restaurant','Doctor\'s office','Hospital','School classroom','University lab','Construction site','Factory floor','Warehouse',
+    'Supermarket','Bakery','Home kitchen','Coffee shop','Bar / pub','Theater stage','Film set','Music studio','Art studio','Museum gallery',
+    'Library','Gym','Sports stadium','Airport terminal','Train station','Police station','Fire station','Courthouse','Post office','The Moon'
+  ];
 
-  const gridOcc=document.getElementById('gridOcc'), gridNat=document.getElementById('gridNat'), gridObj=document.getElementById('gridObj');
-  function makeTile(label, gridEl){
-    const btn=document.createElement('button');
-    btn.type='button'; btn.className='termBtn'; btn.textContent=label; btn.dataset.term=label; btn.dataset.clicks='0';
-    btn.addEventListener('click', ()=>{
-      const c=(+btn.dataset.clicks||0)+1; btn.dataset.clicks=String(c);
-      if(c>=3){ // rename
-        btn.dataset.clicks='0'; btn.classList.add('editing');
-        const prev=btn.dataset.term; const input=document.createElement('input'); input.type='text'; input.value=prev; input.style.width='100%';
-        const finish=()=>{ const v=input.value.trim()||prev; btn.dataset.term=v; btn.textContent=v; btn.classList.remove('editing'); autoApply(); };
-        input.addEventListener('keydown',(e)=>{ if(e.key==='Enter') finish(); });
-        input.addEventListener('blur',finish);
-        btn.innerHTML=''; btn.appendChild(input); input.focus(); input.select(); return;
-      }
-      btn.classList.toggle('selected');
-      setTimeout(()=>{ btn.dataset.clicks='0'; }, 280);
-      autoApply();
-    });
-    gridEl.appendChild(btn);
-    return btn;
-  }
-  Object.keys(OCC).forEach(k=> makeTile(k, gridOcc));
-  Object.keys(NAT).forEach(k=> makeTile(k, gridNat));
-  OBJ.forEach(k=> makeTile(k, gridObj));
-
-  /* Selection helpers */
-  function selectedFrom(gridEl){ return [...gridEl.querySelectorAll('.termBtn.selected')].map(b=> b.dataset.term||b.textContent.trim()); }
-  function selectedAll(){ return { occ:selectedFrom(gridOcc), nat:selectedFrom(gridNat), obj:selectedFrom(gridObj) }; }
-
-  /* Settings */
-  let slideSeconds=5, nameDelay=3000;
-  document.getElementById('applySettings').onclick=()=>{
-    slideSeconds=Math.max(0.2, +document.getElementById('speedInput').value||5);
-    nameDelay=Math.max(0, (+document.getElementById('revealInput').value||3)*1000);
-    document.getElementById('settingsNote').textContent=`Applied: slide ${slideSeconds.toFixed(1)}s, reveal ${(nameDelay/1000).toFixed(1)}s.`;
-    if(autoplay) startAutoplay();
+  /* Map each location to a set of object classes (QIDs) to UNION for richer results */
+  const MAP_Q = {
+    'Office': ['Q2920921','Q178973','Q14745','Q68'], /* office equipment, stationery, furniture, computer */
+    'Tax office': ['Q2920921','Q178973','Q81163','Q14745'], /* + calculator */
+    'Restaurant': ['Q43169','Q102205','Q319541'], /* kitchen utensil, tableware, household appliance */
+    "Doctor's office": ['Q332003','Q409967','Q14745'], /* medical equipment, medical instrument (backup), furniture */
+    'Hospital': ['Q332003','Q409967','Q14745'],
+    'School classroom': ['Q178973','Q213642','Q106900'], /* stationery, desk, bookcase */
+    'University lab': ['Q1183543','Q173394','Q319541'], /* scientific instrument, lab glassware, appliance */
+    'Construction site': ['Q39546','Q1027340','Q153556'], /* tool, construction equipment, PPE */
+    'Factory floor': ['Q11016','Q16961420','Q1980186'], /* machine tool, industrial robot, conveyor belt */
+    'Warehouse': ['Q275688','Q19530','Q1980186'], /* forklift, pallet, conveyor belt */
+    'Supermarket': ['Q1351597','Q1145158','Q1980186'], /* shopping cart, display case, conveyor */
+    'Bakery': ['Q43169','Q132390','Q2575179'], /* kitchen utensil, oven, stand mixer */
+    'Home kitchen': ['Q43169','Q246780','Q11409'], /* utensils, small appliance, refrigerator */
+    'Coffee shop': ['Q600841','Q106909','Q43169'], /* espresso machine, coffee grinder, utensil (backup) */
+    'Bar / pub': ['Q806536','Q170783','Q102205'], /* beer tap, cocktail shaker, glass/tableware */
+    'Theater stage': ['Q188748','Q740563','Q19757'], /* spotlight, stage lighting instrument, microphone */
+    'Film set': ['Q11197','Q213288','Q49765'], /* movie camera, clapperboard, boom microphone */
+    'Music studio': ['Q133067','Q19757','Q9415'], /* audio mixer, microphone, loudspeaker */
+    'Art studio': ['Q148094','Q1347431','Q1074483'], /* paintbrush, easel, palette */
+    'Museum gallery': ['Q1145158','Q860861'], /* display case, sculpture (as object in galleries) */
+    'Library': ['Q106900','Q1673','Q178973'], /* bookcase, book, stationery */
+    'Gym': ['Q210506','Q170202','Q216254'], /* treadmill, dumbbell, barbell */
+    'Sports stadium': ['Q192439','Q11641'], /* sports equipment, scoreboard */
+    'Airport terminal': ['Q186507','Q3545703','Q18068927'], /* jet bridge, baggage carousel, baggage cart */
+    'Train station': ['Q1275473','Q212379'], /* ticket machine, turnstile */
+    'Police station': ['Q214063','Q83360'], /* police car, handcuffs */
+    'Fire station': ['Q1405','Q190573'], /* fire engine, extinguisher */
+    'Courthouse': ['Q133027','Q1073528'], /* gavel, witness stand */
+    'Post office': ['Q148853','Q124905'], /* post box, postage stamp */
+    'The Moon': ['Q2900945','Q270534','Q1076575'] /* lunar rover, lunar module, spacesuit */
   };
 
-  /* SPARQL blocks */
-  function H(lines){ return `{ ?person wdt:P31 wd:Q5 ; ${lines.join(' ')} wdt:P18 ?image . BIND(?person AS ?entity) }`; }
-  function F(lines){ return `{ ?person wdt:P18 ?image . ${lines.join(' ')} BIND(?person AS ?entity) }`; }
   function T(lines){ return `{ ?thing ${lines.join(' ')} wdt:P18 ?image . BIND(?thing AS ?entity) }`; }
 
-  function blockForObject(label){
-    if(label==='Famous movie characters') return F([ ' ?person wdt:P31 wd:Q15773347 . ' ]);
-    if(label==='Famous cartoon characters') return F([ ' { ?person wdt:P31 wd:Q15711870 . } UNION { ?person wdt:P31 wd:Q373494 . } ' ]);
-    if(label==='Superheroes') return F([ ' ?person wdt:P31 wd:Q188784 . ' ]);
-    if(label==='Video game characters') return F([ ' ?person wdt:P31 wd:Q95074 . ' ]);
-    if(label==='Cars') return T([ ' ?thing wdt:P31 wd:Q3231690 . ' ]);
-    if(label==='Musical instruments') return T([ ' ?thing wdt:P31/wdt:P279* wd:Q34379 . ' ]);
-    if(label==='Tools') return T([ ' ?thing wdt:P31/wdt:P279* wd:Q39546 . ' ]);
-    if(label==='Household appliances') return T([ ' ?thing wdt:P31/wdt:P279* wd:Q319541 . ' ]);
-    return null;
+  function blockForLocation(label){
+    const qids = MAP_Q[label] || [];
+    if(!qids.length){ // fallback to generic "object"
+      return T([ ' wdt:P31/wdt:P279* wd:Q488383 . ' ]);
+    }
+    const parts = qids.map(q=> `{ ?thing wdt:P31/wdt:P279* wd:${q} . }`).join(' UNION ');
+    return `{ ${parts} } BIND(?thing AS ?entity)`;
   }
 
-  // Build blocks from current selection with intersection logic
-  function buildBlocks({occ, nat, obj}){
-    const blocks=[];
-    const occQ = occ.map(o=> OCC[o]).filter(Boolean);
-    const natQ = nat.map(n=> NAT[n]).filter(Boolean);
-
-    // Intersections: every combination of (occ × nat)
-    if(occQ.length && natQ.length){
-      for(const oq of occQ){
-        for(const nq of natQ){
-          blocks.push({ tag: `${getKeyByValue(OCC, oq)} + ${getKeyByValue(NAT, nq)}`, block: H([ `wdt:P106 wd:${oq} ;`, `wdt:P27 wd:${nq} ;` ]) });
-        }
-      }
-    }
-
-    // Solo occupation blocks (if no nationality selected)
-    if(occQ.length && !natQ.length){
-      for(const oq of occQ){
-        blocks.push({ tag: `${getKeyByValue(OCC, oq)}`, block: H([ `wdt:P106 wd:${oq} ;` ]) });
-      }
-    }
-
-    // Solo nationality blocks (if no occupation selected)
-    if(natQ.length && !occQ.length){
-      for(const nq of natQ){
-        blocks.push({ tag: `${getKeyByValue(NAT, nq)}`, block: H([ `wdt:P27 wd:${nq} ;` ]) });
-      }
-    }
-
-    // Objects/characters (independent)
-    for(const label of obj){
-      const b = blockForObject(label);
-      if(b) blocks.push({ tag: label, block: b });
-    }
-
-    // If nothing chosen, default to Actors
-    if(!blocks.length){
-      blocks.push({ tag:'Actors', block:H([ `wdt:P106 wd:${OCC['Actors']} ;` ]) });
-    }
-    return blocks;
-  }
-  function getKeyByValue(obj, val){ return Object.keys(obj).find(k=> obj[k]===val) || ''; }
-
-  function buildQuery(block, limit=200){
-    return `SELECT ?entity ?entityLabel ?image WHERE {
-${block}
-SERVICE wikibase:label { bd:serviceParam wikibase:language "nb,nn,no,en". }
-} LIMIT ${limit}`;
+  /* Build query and fetch */
+  function buildQuery(block, limit=240){
+    return `SELECT ?entity ?entityLabel ?image WHERE {\n${block}\nSERVICE wikibase:label { bd:serviceParam wikibase:language "nb,nn,no,en". }\n} LIMIT ${limit}`;
   }
 
   async function sparqlQuery(query){
@@ -307,13 +254,6 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language "nb,nn,no,en". }
     return { key, name, imageUrl:url, fileTitle:title, itemUrl, tags:[tag] };
   }
 
-  /* Fetch + mix */
-  const countBadge=document.getElementById('countBadge');
-  function setCount(n){ countBadge.textContent = n? `${n} photos` : '0 photos'; }
-
-  let items=[]; let currIndex=-1; let autoplay=false; let timer=null; let currentLink='#';
-  const imgwrap=document.getElementById('imgwrap'); const nameBar=document.getElementById('nameBar'); const entityName=document.getElementById('entityName'); const entityTags=document.getElementById('entityTags');
-
   function roundRobin(lists){
     const used=new Set(); const out=[]; const dict=new Map();
     lists.forEach(list=> list.forEach(it=>{ if(!dict.has(it.key)) dict.set(it.key, {...it}); else { const ref=dict.get(it.key); it.tags.forEach(t=>{ if(!ref.tags.includes(t)) ref.tags.push(t); }); } }));
@@ -325,23 +265,76 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language "nb,nn,no,en". }
     return out;
   }
 
-  function debounce(fn, ms=350){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
-  const autoApply = debounce(applySelection, 220);
+  /* UI elements */
+  const gridLoc1=document.getElementById('gridLoc1');
+  const gridLoc2=document.getElementById('gridLoc2');
+  const gridLoc3=document.getElementById('gridLoc3');
+  const countBadge=document.getElementById('countBadge');
 
+  function setCount(n){ countBadge.textContent = n? `${n} photos` : '0 photos'; }
+
+  function makeTile(label, gridEl){
+    const btn=document.createElement('button');
+    btn.type='button'; btn.className='termBtn'; btn.textContent=label; btn.dataset.term=label; btn.dataset.clicks='0';
+    btn.addEventListener('click', ()=>{
+      const c=(+btn.dataset.clicks||0)+1; btn.dataset.clicks=String(c);
+      if(c>=3){ // rename
+        btn.dataset.clicks='0'; btn.classList.add('editing');
+        const prev=btn.dataset.term; const input=document.createElement('input'); input.type='text'; input.value=prev; input.style.width='100%';
+        const finish=()=>{ const v=input.value.trim()||prev; btn.dataset.term=v; btn.textContent=v; btn.classList.remove('editing'); autoApply(); };
+        input.addEventListener('keydown',(e)=>{ if(e.key==='Enter') finish(); });
+        input.addEventListener('blur',finish);
+        btn.innerHTML=''; btn.appendChild(input); input.focus(); input.select(); return;
+      }
+      btn.classList.toggle('selected');
+      setTimeout(()=>{ btn.dataset.clicks='0'; }, 280);
+      autoApply();
+    });
+    gridEl.appendChild(btn);
+    return btn;
+  }
+
+  // Distribute 30 locations across 3 pages (~10 each)
+  LOCATIONS.forEach((label, i)=>{
+    const target = i<10 ? gridLoc1 : (i<20 ? gridLoc2 : gridLoc3);
+    makeTile(label, target);
+  });
+
+  /* Selection helpers */
+  function selectedFrom(gridEl){ return [...gridEl.querySelectorAll('.termBtn.selected')].map(b=> b.dataset.term||b.textContent.trim()); }
+  function selectedAll(){ return { loc:[...selectedFrom(gridLoc1), ...selectedFrom(gridLoc2), ...selectedFrom(gridLoc3)] }; }
+
+  /* Settings */
+  let slideSeconds=4, nameDelay=2000;
+  document.getElementById('applySettings').onclick=()=>{
+    slideSeconds=Math.max(0.2, +document.getElementById('speedInput').value||4);
+    nameDelay=Math.max(0, (+document.getElementById('revealInput').value||2)*1000);
+    document.getElementById('settingsNote').textContent=`Applied: slide ${slideSeconds.toFixed(1)}s, reveal ${(nameDelay/1000).toFixed(1)}s.`;
+    if(autoplay) startAutoplay();
+  };
+
+  /* Fetch + mix */
+  let items=[]; let currIndex=-1; let autoplay=false; let timer=null; let currentLink='#';
+  const imgwrap=document.getElementById('imgwrap'); const nameBar=document.getElementById('nameBar'); const entityName=document.getElementById('entityName'); const entityTags=document.getElementById('entityTags');
+
+  function debounce(fn, ms=350){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+  const autoApply = debounce(applySelection, 250);
   let fetchGen=0;
+
   async function applySelection(){
-    const gen=++fetchGen;
     const sel=selectedAll();
-    const blocks=buildBlocks(sel);
+    const gen=++fetchGen;
     const perList=[];
-    for(const {tag, block} of blocks){
+    const chosen = sel.loc.length? sel.loc : ['Office']; // default Office
+    for(const label of chosen){
       try{
-        const q=buildQuery(block, 180);
-        const data=await sparqlQuery(q);
+        const block = blockForLocation(label);
+        const q = buildQuery(block, 240); // try to get 40+ if possible
+        const data = await sparqlQuery(q);
         if(gen!==fetchGen) return;
-        const rows=(data.results.bindings||[]).map(r=> normalizeRow(r, tag)).filter(Boolean);
+        const rows=(data.results.bindings||[]).map(r=> normalizeRow(r, label)).filter(Boolean);
         perList.push(rows);
-      }catch(e){ console.warn('block failed', tag, e); }
+      }catch(e){ console.warn('block failed', label, e); }
     }
     const mixed=roundRobin(perList);
     if(gen!==fetchGen) return;
@@ -408,7 +401,7 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language "nb,nn,no,en". }
   document.getElementById('zonePrev').addEventListener('click', ()=>{ stopAutoplay(); prev(); });
   document.getElementById('zoneNext').addEventListener('click', ()=>{ stopAutoplay(); next(); });
 
-  /* PC keyboard mapping */
+  /* PC keyboard mapping for slides */
   document.addEventListener('keydown', (e)=>{
     const tag=(e.target && e.target.tagName)||'';
     if(tag==='INPUT' || tag==='TEXTAREA') return;
@@ -417,7 +410,6 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language "nb,nn,no,en". }
     if(e.code==='Space'){ e.preventDefault(); autoplay? stopAutoplay():startAutoplay(); return; }
     if(key==='s'){ e.preventDefault(); perSlideReveal=true; nameBar.classList.remove('collapsed'); return; }
 
-    // Right-side keys = next, Left-side = previous
     const leftSet=new Set(['`','1','2','3','4','5','q','w','e','r','t','a','s','d','f','g','z','x','c','v','b']);
     const rightSet=new Set(['6','7','8','9','0','-','=', 'y','u','i','o','p','[',']','\\','h','j','k','l',';','\'','n','m',',','.','/']);
 
@@ -425,7 +417,7 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language "nb,nn,no,en". }
     if(leftSet.has(key)){ stopAutoplay(); prev(); return; }
   });
 
-  // Page arrows still switch pages (outside inputs)
+  // Arrow keys switch pages; Alt+C clears all selections
   document.addEventListener('keydown', (e)=>{
     const tag=(e.target && e.target.tagName)||'';
     if(tag==='INPUT' || tag==='TEXTAREA') return;
@@ -443,9 +435,9 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language "nb,nn,no,en". }
   document.getElementById('clearAll3').onclick=clearAll;
   document.getElementById('clearAll4').onclick=clearAll;
 
-  /* Boot: preselect Actors + apply */
-  const actorBtn=[...document.querySelectorAll('#gridOcc .termBtn')].find(b=> (b.dataset.term||b.textContent)==='Actors');
-  if(actorBtn) actorBtn.classList.add('selected');
+  /* Boot: preselect Office + apply */
+  const officeBtn=[...document.querySelectorAll('#gridLoc1 .termBtn,#gridLoc2 .termBtn,#gridLoc3 .termBtn')].find(b=> (b.dataset.term||b.textContent)==='Office');
+  if(officeBtn) officeBtn.classList.add('selected');
   applySelection();
 })();
 </script>
