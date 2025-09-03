@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Objects - v1.1 — Wikidata Objects Slideshow</title>
-<meta name="description" content="Objects slideshow that fetches photos from Wikidata/Commons by location categories. Swipe pages reliably (Samsung Internet friendly), seamless image swaps, left-rail controls, auto-apply selection. Defaults: 4s slide, 2s reveal." />
+<title>Objects 01 - v02 — Objects Slideshow (Commons)</title>
+<meta name="description" content="Objects slideshow that fetches random photos from Wikimedia Commons categories per location. Swipe pages reliably (Samsung Internet friendly), seamless image swaps, left-rail controls, auto-apply selection. Defaults: 4s slide, 2s reveal." />
 <style>
   :root { --bg:#0b0f14; --fg:#e5eef7; --accent:#60a5fa; --ok:#34d399; --panel:#0f172a; --muted:#9fb7d6; }
   *{box-sizing:border-box}
@@ -28,13 +28,10 @@
 
   /* Stage layout */
   .stageWrap{ display:grid; grid-template-columns:95px 1fr; height:calc(100vh - 210px); min-height:360px; position:relative; }
-  @supports(height: 100dvh){
-    .stageWrap{ height:calc(100dvh - 210px); }
-  }
+  @supports(height: 100dvh){ .stageWrap{ height:calc(100dvh - 210px); } }
   .leftRail{
     display:grid; grid-auto-rows:min-content; align-content:start; gap:10px; padding:10px;
-    background:rgba(59,130,246,.14); border-right:1px solid rgba(255,255,255,.08); z-index:10;
-    touch-action: none;
+    background:rgba(59,130,246,.14); border-right:1px solid rgba(255,255,255,.08); z-index:10; touch-action:none;
   }
   .btn{padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,.1); background:#1f2937; color:#fff; cursor:pointer; font-weight:700}
   .btn.playing{background:rgba(52,211,153,.28); border-color:rgba(52,211,153,.6)}
@@ -42,10 +39,7 @@
 
   .stage{ position:relative; display:grid; place-items:center; overflow:hidden; }
   .imgwrap{ position:relative; width:100%; height:100%; display:grid; place-items:center; }
-  img.photo{
-    max-width:88vw; max-height:74vh; object-fit:contain; border-radius:16px; box-shadow:0 12px 32px rgba(0,0,0,.55);
-    opacity:0; transition:opacity .18s ease;
-  }
+  img.photo{ max-width:88vw; max-height:74vh; object-fit:contain; border-radius:16px; box-shadow:0 12px 32px rgba(0,0,0,.55); opacity:0; transition:opacity .18s ease; }
   img.photo.show{opacity:1}
 
   .nameOverlay{
@@ -56,6 +50,9 @@
   .nameOverlay.collapsed{display:none}
   .title{font-size:22px; font-weight:800}
   .tags{margin-top:6px; font-size:13px; color:var(--muted)}
+
+  /* Version tag on page 1 */
+  .versionSticker{position:absolute; top:10px; left:110px; z-index:20; background:rgba(0,0,0,.6); border:1px solid rgba(255,255,255,.2); padding:6px 10px; border-radius:10px; font-size:12px}
 
   .builder{padding:12px}
   .grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:10px}
@@ -68,34 +65,24 @@
   footer a{color:var(--ok); text-decoration:none}
 
   /* Fullscreen swipe catcher for reliable page swipes (Samsung Internet friendly) */
-  #swipeCatcher{
-    position:fixed; inset:0; z-index:998; /* just under the tabs (999) and header (1000) */
-    background:transparent;
-  }
-  /* Only enable when on slideshow to avoid blocking clicks elsewhere */
+  #swipeCatcher{ position:fixed; inset:0; z-index:998; background:transparent; }
   .noSwipe{ display:none !important; }
 
-  /* Click zones for next/prev inside the image area */
-  .zonePrev, .zoneNext{
-    position:absolute; top:0; bottom:0; z-index:5;
-  }
+  /* Click zones */
+  .zonePrev, .zoneNext{ position:absolute; top:0; bottom:0; z-index:5; }
   .zonePrev{ left:95px; width:35%; }
   .zoneNext{ right:0; width:65%; }
 
-  @media (max-width: 768px){
-    .stageWrap{grid-template-columns:84px 1fr}
-    .zonePrev{ left:84px; }
-    #revealBtn, #nextPhoto{height:100px}
-  }
+  @media (max-width: 768px){ .stageWrap{grid-template-columns:84px 1fr} .zonePrev{ left:84px; } #revealBtn, #nextPhoto{height:100px} }
 </style>
 </head>
 <body>
   <header>
-    <h1>🧰 Objects - v1.1</h1>
+    <h1>🧰 Objects 01 - v02</h1>
     <span class="badge" id="countBadge">0 photos</span>
     <div class="sp"></div>
     <button class="iconBtn" id="gearBtn" title="Settings (toggle)">⚙️</button>
-    <button class="iconBtn" id="openLink" title="Open item/file page">🔗</button>
+    <button class="iconBtn" id="openLink" title="Open file page">🔗</button>
   </header>
 
   <nav class="tabs" role="tablist">
@@ -116,6 +103,7 @@
           <button id="nextPhoto" class="btn">Next</button>
         </div>
         <div class="stage">
+          <div class="versionSticker" id="versionSticker">Objects 01 — v02</div>
           <div class="imgwrap" id="imgwrap"></div>
           <div class="nameOverlay collapsed" id="nameBar">
             <div class="title" id="entityName">&nbsp;</div>
@@ -125,7 +113,6 @@
           <div class="zoneNext" id="zoneNext" title="Next"></div>
         </div>
       </div>
-      <!-- Swipe catcher shows only on slideshow page -->
       <div id="swipeCatcher" class="noSwipe"></div>
     </section>
 
@@ -166,7 +153,7 @@
 
   <footer>
     <div>
-      PC: <em>Right-side keys</em> ⇒ Next, <em>Left-side keys</em> ⇒ Previous. <kbd>S</kbd> ⇒ Reveal (this slide). <kbd>Space</kbd> ⇒ Play/Pause. <kbd>Alt</kbd>+<kbd>C</kbd> ⇒ Clear All.
+      PC: <em>Right-side keys</em> ⇒ Next, <em>Left-side keys</em> ⇒ Previous. <kbd>S</kbd> ⇒ Reveal. <kbd>Space</kbd> ⇒ Play/Pause. <kbd>Alt</kbd>+<kbd>C</kbd> ⇒ Clear All.
       Mobile: swipe left/right to switch pages; tap left/right of photo for prev/next. Triple-click a tile to rename.
     </div>
     <div class="sp"></div>
@@ -185,131 +172,138 @@
       const on=(i===idx-1);
       t.page.classList.toggle('active', on); t.tab.setAttribute('aria-selected', String(on));
     });
-    // Only show the swipe catcher on slideshow page
     if(idx===1){ swipeCatcher.classList.remove('noSwipe'); }
     else { swipeCatcher.classList.add('noSwipe'); }
   }
   tabs.forEach((t,i)=> t.tab.addEventListener('click',()=> setPage(i+1)));
   document.getElementById('gearBtn').addEventListener('click', ()=>{ const i=activePageIndex()+1; setPage(i===5?1:5); });
 
-  /* Reliable swipe (Samsung Internet friendly) */
+  /* Reliable swipe */
   let sx=0, sy=0, swiping=false;
-  swipeCatcher.addEventListener('touchstart', e=>{
-    if(e.touches.length!==1) return;
-    swiping=true;
-    sx=e.touches[0].clientX; sy=e.touches[0].clientY;
-  }, {passive:false});
-  swipeCatcher.addEventListener('touchmove', e=>{
-    if(!swiping) return;
-    const dx=e.touches[0].clientX - sx;
-    const dy=e.touches[0].clientY - sy;
-    if(Math.abs(dx)>Math.abs(dy)) e.preventDefault(); // lock horizontal swipe
-  }, {passive:false});
-  swipeCatcher.addEventListener('touchend', e=>{
-    if(!swiping) return; swiping=false;
-    const t=e.changedTouches[0];
-    const dx=t.clientX - sx, dy=t.clientY - sy;
-    if(Math.abs(dx)>40 && Math.abs(dy)<60){
-      const i=activePageIndex()+1;
-      if(dx<0 && i<5) setPage(i+1);
-      if(dx>0 && i>1) setPage(i-1);
-    }
-  }, {passive:false});
+  swipeCatcher.addEventListener('touchstart', e=>{ if(e.touches.length!==1) return; swiping=true; sx=e.touches[0].clientX; sy=e.touches[0].clientY; }, {passive:false});
+  swipeCatcher.addEventListener('touchmove', e=>{ if(!swiping) return; const dx=e.touches[0].clientX - sx; const dy=e.touches[0].clientY - sy; if(Math.abs(dx)>Math.abs(dy)) e.preventDefault(); }, {passive:false});
+  swipeCatcher.addEventListener('touchend', e=>{ if(!swiping) return; swiping=false; const t=e.changedTouches[0]; const dx=t.clientX - sx, dy=t.clientY - sy; if(Math.abs(dx)>40 && Math.abs(dy)<60){ const i=activePageIndex()+1; if(dx<0 && i<5) setPage(i+1); if(dx>0 && i>1) setPage(i-1); } }, {passive:false});
 
-  /* Also arrow keys for pages */
+  /* Arrow keys for pages */
   document.addEventListener('keydown', (e)=>{
-    const tag=(e.target && e.target.tagName)||'';
-    if(tag==='INPUT' || tag==='TEXTAREA') return;
+    const tag=(e.target && e.target.tagName)||''; if(tag==='INPUT' || tag==='TEXTAREA') return;
     if(e.key==='ArrowRight'){ const i=activePageIndex()+1; if(i<5) setPage(i+1); }
     if(e.key==='ArrowLeft'){ const i=activePageIndex()+1; if(i>1) setPage(i-1); }
     if(e.altKey && e.key.toLowerCase()==='c'){ e.preventDefault(); clearAll(); }
   });
 
-  /* Locations (30) */
+  /* Locations (expanded, improv-friendly) */
   const LOCATIONS = [
     'Office','Tax office','Restaurant','Doctor\'s office','Hospital','School classroom','University lab','Construction site','Factory floor','Warehouse',
     'Supermarket','Bakery','Home kitchen','Coffee shop','Bar / pub','Theater stage','Film set','Music studio','Art studio','Museum gallery',
-    'Library','Gym','Sports stadium','Airport terminal','Train station','Police station','Fire station','Courthouse','Post office','The Moon'
+    'Library','Gym','Sports stadium','Airport terminal','Train station','Police station','Fire station','Courthouse','Post office','The Moon',
+    'Farmer\'s market','School dance','Hardware store','Pharmacy','Beauty salon','Barbershop','Hotel lobby','Kitchen supply store','Flower shop','Public park',
+    'Beach','Playground','City street','Subway','Bus stop','Camping site','Garage','Living room','Class reunion','Open mic night'
   ];
 
-  /* QID maps (object-ish classes) */
-  const MAP_Q = {
-    'Office': ['Q2920921','Q178973','Q14745','Q68'],
-    'Tax office': ['Q2920921','Q178973','Q81163','Q14745'],
-    'Restaurant': ['Q43169','Q102205','Q319541'],
-    "Doctor's office": ['Q332003','Q409967','Q14745'],
-    'Hospital': ['Q332003','Q409967','Q14745'],
-    'School classroom': ['Q178973','Q213642','Q106900'],
-    'University lab': ['Q1183543','Q173394','Q319541'],
-    'Construction site': ['Q39546','Q1027340','Q153556'],
-    'Factory floor': ['Q11016','Q16961420','Q1980186'],
-    'Warehouse': ['Q275688','Q19530','Q1980186'],
-    'Supermarket': ['Q1351597','Q1145158','Q1980186'],
-    'Bakery': ['Q43169','Q132390','Q2575179'],
-    'Home kitchen': ['Q43169','Q246780','Q11409'],
-    'Coffee shop': ['Q600841','Q106909','Q43169'],
-    'Bar / pub': ['Q806536','Q170783','Q102205'],
-    'Theater stage': ['Q188748','Q740563','Q19757'],
-    'Film set': ['Q11197','Q213288','Q49765'],
-    'Music studio': ['Q133067','Q19757','Q9415'],
-    'Art studio': ['Q148094','Q1347431','Q1074483'],
-    'Museum gallery': ['Q1145158','Q860861'],
-    'Library': ['Q106900','Q1673','Q178973'],
-    'Gym': ['Q210506','Q170202','Q216254'],
-    'Sports stadium': ['Q192439','Q11641'],
-    'Airport terminal': ['Q186507','Q3545703','Q18068927'],
-    'Train station': ['Q1275473','Q212379'],
-    'Police station': ['Q214063','Q83360'],
-    'Fire station': ['Q1405','Q190573'],
-    'Courthouse': ['Q133027','Q1073528'],
-    'Post office': ['Q148853','Q124905'],
-    'The Moon': ['Q2900945','Q270534','Q1076575']
+  /* Commons category maps for each location. Avoids Wikidata entirely. */
+  const MAP_CATS = {
+    'Office':[ 'Office_equipment', 'Desks', 'Office_chairs', 'Computers_in_offices', 'Printers', 'Stationery', 'Office_workers', 'Secretaries', 'Delivery_people' ],
+    'Tax office':[ 'Office_equipment', 'Counters_(service_areas)', 'Queue_management_systems', 'Forms' ],
+    'Restaurant':[ 'Restaurant_equipment', 'Tableware', 'Menus', 'Waiters', 'Chefs', 'Cash_registers' ],
+    "Doctor's office":[ 'Medical_equipment', 'Stethoscopes', 'Sphygmomanometers', 'Waiting_rooms', 'Reception_desks' ],
+    'Hospital':[ 'Hospital_equipment', 'Operating_rooms', 'Ambulances_(interiors)', 'IV_drips' ],
+    'School classroom':[ 'Classrooms', 'Blackboards', 'Whiteboards', 'School_desks', 'School_supplies' ],
+    'University lab':[ 'Laboratory_equipment', 'Microscopes', 'Glassware', 'Fume_hoods' ],
+    'Construction site':[ 'Construction_tools', 'Excavators', 'Cranes_(machines)', 'Safety_helmets', 'Cones_(traffic)' ],
+    'Factory floor':[ 'Industrial_machinery', 'Assembly_lines', 'Conveyor_belts', 'Forklift_trucks' ],
+    'Warehouse':[ 'Warehouse_racking', 'Pallets', 'Forklift_trucks', 'Bar_code_scanners' ],
+    'Supermarket':[ 'Shopping_carts', 'Shelving', 'Bar_code_scanners', 'Checkout_counters' ],
+    'Bakery':[ 'Bakeries', 'Ovens', 'Bread', 'Rolling_pins' ],
+    'Home kitchen':[ 'Kitchen_utensils', 'Cookware', 'Refrigerators', 'Cutting_boards' ],
+    'Coffee shop':[ 'Espresso_machines', 'Coffee_grinders', 'To_go_cups', 'Baristas' ],
+    'Bar / pub':[ 'Bartending_tools', 'Beer_taps', 'Glasses', 'Cocktail_shakers' ],
+    'Theater stage':[ 'Stage_lighting_equipment', 'Microphones', 'Props', 'Curtains_(theatre)' ],
+    'Film set':[ 'Film_cameras', 'Clapperboards', 'Boom_microphones', 'Light_stands' ],
+    'Music studio':[ 'Audio_mixers', 'Headphones', 'Microphones', 'Synthesizers' ],
+    'Art studio':[ 'Easels', 'Paintbrushes', 'Palettes', 'Canvases' ],
+    'Museum gallery':[ 'Display_cases', 'Audio_guides', 'Gallery_benches' ],
+    'Library':[ 'Bookshelves', 'Library_circulation_desks', 'Library_cards' ],
+    'Gym':[ 'Dumbbells', 'Treadmills', 'Kettlebells', 'Yoga_mats' ],
+    'Sports stadium':[ 'Scoreboards', 'Turnstiles', 'Bleachers', 'Goal_posts' ],
+    'Airport terminal':[ 'Check-in_counters', 'Boarding_pass_scanners', 'Baggage_carousels' ],
+    'Train station':[ 'Ticket_vending_machines', 'Platforms_(railways)', 'Turnstiles' ],
+    'Police station':[ 'Handcuffs', 'Police_radios', 'Evidence_bags' ],
+    'Fire station':[ 'Firefighting_equipment', 'Fire_helmets', 'Turnout_gear' ],
+    'Courthouse':[ 'Courtrooms', 'Gavels', 'Court_benches' ],
+    'Post office':[ 'Mail_sorting', 'Postboxes', 'Scales' ],
+    'The Moon':[ 'Apollo_equipment', 'Lunar_samples', 'Space_suits' ],
+    "Farmer's market":[ 'Farmers_markets', 'Scales', 'Vegetables', 'Fruit_stalls', 'Cash_boxes' ],
+    'School dance':[ 'School_dances', 'Balloon_decorations', 'Disco_balls' ],
+    'Hardware store':[ 'Hardware_store_interior', 'Tools', 'Power_tools', 'Fasteners' ],
+    'Pharmacy':[ 'Pharmacies', 'Pill_bottles', 'Barcode_scanners', 'Prescription_counters' ],
+    'Beauty salon':[ 'Hairdryers', 'Salon_chairs', 'Make-up_tools' ],
+    'Barbershop':[ 'Barber_chairs', 'Straight_razors', 'Clippers' ],
+    'Hotel lobby':[ 'Reception_desks', 'Luggage_carts', 'Keycards' ],
+    'Kitchen supply store':[ 'Cookware', 'Kitchen_knives', 'Bakeware' ],
+    'Flower shop':[ 'Florist_tools', 'Bouquets', 'Flower_buckets' ],
+    'Public park':[ 'Park_benches', 'Playground_equipment', 'Water_fountains' ],
+    'Beach':[ 'Beach_umbrellas', 'Coolers', 'Sunscreen' ],
+    'Playground':[ 'Swings', 'Slides', 'Climbing_frames' ],
+    'City street':[ 'Street_furniture', 'Newspaper_boxes', 'Traffic_cones' ],
+    'Subway':[ 'Turnstiles', 'Ticket_vending_machines', 'Platform_screen_doors' ],
+    'Bus stop':[ 'Bus_shelters', 'Timetable_displays', 'Benches' ],
+    'Camping site':[ 'Tents', 'Camping_stoves', 'Lanterns' ],
+    'Garage':[ 'Tool_chests', 'Car_jacks', 'Air_compressors' ],
+    'Living room':[ 'Sofas', 'Coffee_tables', 'Remote_controls' ],
+    'Class reunion':[ 'Name_badges', 'Buffets', 'Photo_booths' ],
+    'Open mic night':[ 'Microphones', 'Stools', 'PA_systems' ]
   };
 
-  /* SPARQL helpers */
-  function blockForLocation(label){
-    const qids = MAP_Q[label] || [];
-    if(!qids.length){
-      return `{ ?thing wdt:P31/wdt:P279* wd:Q488383 ; wdt:P18 ?image . BIND(?thing AS ?entity) }`;
+  /* Commons API helpers */
+  const COMMONS = 'https://commons.wikimedia.org/w/api.php';
+
+  function categoryFetch(category, limit=80){
+    const params = new URLSearchParams({
+      action:'query', format:'json', origin:'*',
+      generator:'categorymembers', gcmtitle:`Category:${category}`,
+      gcmtype:'file', gcmlimit:String(Math.min(limit, 200)),
+      prop:'imageinfo|info', iiprop:'url', iiurlwidth:'1600', inprop:'url'
+    });
+    return fetch(`${COMMONS}?${params}`).then(r=>r.json()).then(data=>{
+      const pages = data?.query?.pages || {};
+      return Object.values(pages).map(p=>{
+        const ii = (p.imageinfo||[])[0]||{};
+        return {
+          key:p.pageid+'' ,
+          name:p.title.replace(/^File:/,''),
+          imageUrl: ii.thumburl || ii.url,
+          fileTitle: p.title,
+          itemUrl: p.fullurl || (`https://commons.wikimedia.org/wiki/${encodeURIComponent(p.title)}`),
+          tags: []
+        };
+      });
+    }).catch(()=>[]);
+  }
+
+  function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
+
+  async function fetchForLocation(label){
+    const cats = MAP_CATS[label] || [];
+    if(!cats.length){ return []; }
+    const results = await Promise.all(cats.map(c=> categoryFetch(c, 80)));
+    const merged = [];
+    const seen = new Set();
+    for(const list of results){
+      for(const it of list){
+        if(!it.imageUrl) continue;
+        if(seen.has(it.key)) continue;
+        seen.add(it.key);
+        it.tags = [label];
+        merged.push(it);
+      }
     }
-    const union = qids.map(q=> `{ ?thing wdt:P31/wdt:P279* wd:${q} . }`).join(' UNION ');
-    return `{ { ${union} } ?thing wdt:P18 ?image . BIND(?thing AS ?entity) }`;
+    return shuffle(merged).slice(0, 160);
   }
-  function buildQuery(block, limit=240){
-    return `SELECT ?entity ?entityLabel ?image WHERE {
-${block}
-SERVICE wikibase:label { bd:serviceParam wikibase:language "nb,nn,no,en". }
-} LIMIT ${limit}`;
-  }
-  async function sparqlQuery(query){
-    const endpoint='https://query.wikidata.org/sparql';
-    const body=new URLSearchParams(); body.set('query', query);
-    const res=await fetch(endpoint,{method:'POST',mode:'cors',headers:{'Accept':'application/sparql-results+json','Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body});
-    if(!res.ok){ const t=await res.text().catch(()=> ''); throw new Error('WDQS '+res.status+' '+t.slice(0,120)); }
-    return await res.json();
-  }
-  function toThumb(imageVal){
-    let fileName=imageVal;
-    try{ if(fileName.startsWith('http')){ const u=new URL(fileName); const last=decodeURIComponent(u.pathname.split('/').pop()); fileName=last.replace(/^.*File:/,'File:'); } }catch{}
-    if(!/^File:/i.test(fileName)){ fileName='File:'+fileName.replace(/^.*File:/,''); }
-    const bare=encodeURIComponent(fileName.replace(/^File:/,''));
-    return { url:`https://commons.wikimedia.org/w/thumb.php?f=${bare}&w=1600`, title:`File:${fileName.replace(/^File:/,'')}` };
-  }
-  function normalizeRow(r, tag){
-    const name=r.entityLabel?.value || 'Untitled';
-    const imageVal=r.image?.value || '';
-    if(!imageVal) return null;
-    const {url,title}=toThumb(imageVal);
-    const itemUrl=r.entity?.value || '#';
-    const key=itemUrl && itemUrl!=='#' ? itemUrl : url;
-    return { key, name, imageUrl:url, fileTitle:title, itemUrl, tags:[tag] };
-  }
+
   function roundRobin(lists){
     const used=new Set(); const out=[]; const dict=new Map();
-    lists.forEach(list=> list.forEach(it=>{
-      if(!dict.has(it.key)) dict.set(it.key, {...it});
-      else { const ref=dict.get(it.key); it.tags.forEach(t=>{ if(!ref.tags.includes(t)) ref.tags.push(t); }); }
-    }));
+    lists.forEach(list=> list.forEach(it=>{ if(!dict.has(it.key)) dict.set(it.key, {...it}); }));
     const queues=lists.map(list=> list.map(it=>it.key));
     const maxLen=Math.max(0,...queues.map(q=>q.length));
     for(let i=0;i<maxLen;i++){
@@ -355,7 +349,7 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language "nb,nn,no,en". }
 
   /* Distribute locations across 3 pages */
   const pages=[gridLoc1,gridLoc2,gridLoc3];
-  LOCATIONS.forEach((label, i)=>{ makeTile(label, pages[Math.min(2, Math.floor(i/10))]); });
+  LOCATIONS.forEach((label, i)=>{ makeTile(label, pages[Math.min(2, Math.floor(i/Math.ceil(LOCATIONS.length/3)))]); });
 
   /* Selection helpers */
   function selectedFrom(gridEl){ return [...gridEl.querySelectorAll('.termBtn.selected')].map(b=> b.dataset.term||b.textContent.trim()); }
@@ -383,13 +377,10 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language "nb,nn,no,en". }
     const chosen = sel.loc.length? sel.loc : ['Office'];
     for(const label of chosen){
       try{
-        const block = blockForLocation(label);
-        const q = buildQuery(block, 240);
-        const data = await sparqlQuery(q);
+        const rows = await fetchForLocation(label);
         if(gen!==fetchGen) return;
-        const rows=(data.results.bindings||[]).map(r=> normalizeRow(r, label)).filter(Boolean);
         perList.push(rows);
-      }catch(e){ console.warn('block failed', label, e); }
+      }catch(e){ console.warn('fetch failed', label, e); }
     }
     const mixed=roundRobin(perList);
     if(gen!==fetchGen) return;
@@ -405,26 +396,18 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language "nb,nn,no,en". }
     imgwrap.appendChild(currentImg);
     if(prev){ prev.addEventListener('transitionend', ()=>{ try{ imgwrap.removeChild(prev); }catch{} }, {once:true}); prev.classList.remove('show'); }
   }
-  async function filePageURL(fileTitle){
-    try{
-      const url='https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&prop=imageinfo&iiprop=url&titles='+encodeURIComponent(fileTitle);
-      const res=await fetch(url); const data=await res.json();
-      const page=data?.query?.pages ? Object.values(data.query.pages)[0] : null;
-      return page?.fullurl || ('https://commons.wikimedia.org/wiki/'+encodeURIComponent(fileTitle));
-    }catch(e){ return 'https://commons.wikimedia.org/wiki/'+encodeURIComponent(fileTitle); }
-  }
-  async function showIndex(i){
+
+  function showIndex(i){
     if(!items.length) return;
     currIndex=(i+items.length)%items.length;
     const it=items[currIndex];
     const img=new Image(); img.decoding='async'; img.referrerPolicy='no-referrer';
-    img.onload=async ()=>{
+    img.onload=()=>{
       swapIn(img);
       entityName.textContent=it.name;
       entityTags.textContent=(it.tags||[]).join(' + ');
       nameBar.classList.add('collapsed');
-      const f = await filePageURL(it.fileTitle).catch(()=> '#');
-      currentLink = it.itemUrl && it.itemUrl!=='#' ? it.itemUrl : (f||'#');
+      currentLink = it.itemUrl || '#';
       setTimeout(()=>{ if(!globalHide || perSlideReveal){ nameBar.classList.remove('collapsed'); } perSlideReveal=false; }, nameDelay);
       downloadLink.href=it.imageUrl; downloadLink.download=it.fileTitle.replace(/^File:/,'');
     };
@@ -454,8 +437,7 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language "nb,nn,no,en". }
 
   /* PC keyboard mapping for slides */
   document.addEventListener('keydown', (e)=>{
-    const tag=(e.target && e.target.tagName)||'';
-    if(tag==='INPUT' || tag==='TEXTAREA') return;
+    const tag=(e.target && e.target.tagName)||''; if(tag==='INPUT' || tag==='TEXTAREA') return;
     const key=(e.key||'').toLowerCase();
     if(e.code==='Space'){ e.preventDefault(); autoplay? stopAutoplay():startAutoplay(); return; }
     if(key==='s'){ e.preventDefault(); perSlideReveal=true; nameBar.classList.remove('collapsed'); return; }
@@ -475,10 +457,13 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language "nb,nn,no,en". }
   document.getElementById('clearAll4').onclick=clearAll;
 
   /* Boot: preselect Office + apply */
-  const firstTiles=[...document.querySelectorAll('#gridLoc1 .termBtn,#gridLoc2 .termBtn,#gridLoc3 .termBtn')];
-  const officeBtn=firstTiles.find(b=> (b.dataset.term||b.textContent)==='Office');
-  if(officeBtn) officeBtn.classList.add('selected');
-  applySelection();
+  const allTiles=[...document.querySelectorAll('#gridLoc1 .termBtn,#gridLoc2 .termBtn,#gridLoc3 .termBtn')];
+  // If tiles not yet created (because of timing), wait a tick
+  setTimeout(()=>{
+    const officeBtn=[...document.querySelectorAll('#gridLoc1 .termBtn,#gridLoc2 .termBtn,#gridLoc3 .termBtn')].find(b=> (b.dataset.term||b.textContent)==='Office');
+    if(officeBtn) officeBtn.classList.add('selected');
+    applySelection();
+  }, 0);
 })();
 </script>
 </body>
