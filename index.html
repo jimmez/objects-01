@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Slideshow v30 — Wikidata/Commons</title>
+<meta name="description" content="Auto-fetch slideshow. Actors default. Nationality × Occupation intersection (e.g., Swedish + Actors). PC: right-side keys next, left-side previous, S reveals this slide. Auto-apply categories." />
+<style>
+  :root { --bg:#0b0f14; --fg:#e5eef7; --accent:#60a5fa; --ok:#34d399; --panel:#0f172a; --muted:#9fb7d6; }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  html, body, main, .page { touch-action: pan-y; }
+  body{
+    margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial;
+    background:var(--bg); color:var(--fg);
+    display:grid; grid-template-rows:auto auto 1fr auto;
+  }
+  header{display:flex; align-items:center; gap:10px; padding:10px 12px; background:#111827; position:sticky; top:0; z-index:1000}
+  h1{font-size:16px; margin:0}
+  .sp{flex:1}
+  .iconBtn{width:36px; height:36px; display:grid; place-items:center; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.06); cursor:pointer}
+  .badge{font-size:12px; padding:4px 8px; border:1px solid rgba(255,255,255,.12); border-radius:999px}
+  nav.tabs{display:flex; gap:8px; padding:8px 12px; border-bottom:1px solid rgba(255,255,255,.06); background:#0f172a; overflow:auto; position:sticky; top:48px; z-index:999}
+  .tab{padding:8px 12px; border-radius:10px; border:1px solid rgba(255,255,255,.1); cursor:pointer; white-space:nowrap; background:#0b1222}
+  .tab[aria-selected="true"]{background:rgba(96,165,250,.15); border-color:rgba(96,165,250,.6)}
+  .page{display:none; height:100%}
+  .page.active{display:block}
+
+  .stageWrap{ display:grid; grid-template-columns:95px 1fr; height:calc(100vh - 210px); min-height:360px; position:relative; }
+  .leftRail{
+    display:grid; grid-auto-rows:min-content; align-content:start; gap:10px; padding:10px;
+    background:rgba(59,130,246,.14); border-right:1px solid rgba(255,255,255,.08); z-index:10;
+  }
+  .btn{padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,.1); background:#1f2937; color:#fff; cursor:pointer; font-weight:700}
+  .btn.playing{background:rgba(52,211,153,.28); border-color:rgba(52,211,153,.6)}
+  #revealBtn, #nextPhoto{height:120px}
+
+  .stage{ position:relative; display:grid; place-items:center; overflow:hidden; }
+  .imgwrap{ position:relative; width:100%; height:100%; display:grid; place-items:center; }
+  img.photo{
+    max-width:88vw; max-height:74vh; object-fit:contain; border-radius:16px; box-shadow:0 12px 32px rgba(0,0,0,.55);
+    opacity:0; transition:opacity .18s ease;
+  }
+  img.photo.show{opacity:1}
+
+  .nameOverlay{
+    position:absolute; left:50%; bottom:6%; transform:translateX(-50%);
+    background:rgba(0,0,0,.72); border:1px solid rgba(255,255,255,.1);
+    padding:12px 16px; border-radius:14px; text-align:center; max-width:min(92%, 880px)
+  }
+  .nameOverlay.collapsed{display:none}
+  .title{font-size:22px; font-weight:800}
+  .tags{margin-top:6px; font-size:13px; color:var(--muted)}
+
+  .topRight{position:relative}
+  #openLink{margin-left:6px; padding:6px 10px; border-radius:10px; background:#1f2937; border:1px solid rgba(255,255,255,.12); color:#fff; cursor:pointer}
+
+  .builder{padding:12px}
+  .grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:10px}
+  .termBtn{padding:12px 14px; border-radius:12px; background:#111827; border:1px solid rgba(255,255,255,.22); cursor:pointer; text-align:left; user-select:none; color:#fff}
+  .termBtn.selected{outline:2px solid var(--accent); background:#1f2937}
+  .termBtn.editing{outline:2px dashed #fbbf24}
+  .rowActions{display:flex; gap:10px; margin-top:10px; flex-wrap:wrap}
+
+  footer{padding:10px 12px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; color:#9fb7d6; background:#111827; z-index:1000}
+  footer a{color:var(--ok); text-decoration:none}
+
+  @media (max-width: 768px){ .stageWrap{grid-template-columns:84px 1fr} #revealBtn, #nextPhoto{height:100px} }
+</style>
+</head>
+<body>
+  <header>
+    <h1>🎞️ Slideshow (v30)</h1>
+    <span class="badge" id="countBadge">0 photos</span>
+    <div class="sp"></div>
+    <div class="topRight">
+      <button class="iconBtn" id="gearBtn" title="Settings (toggle)">⚙️</button>
+      <button class="iconBtn" id="openLink" title="Open item/file page">🔗</button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-controls="page1" aria-selected="true" id="tab1">Page 1: Slideshow</button>
+    <button class="tab" role="tab" aria-controls="page2" aria-selected="false" id="tab2">Page 2: Occupations</button>
+    <button class="tab" role="tab" aria-controls="page3" aria-selected="false" id="tab3">Page 3: Nationalities</button>
+    <button class="tab" role="tab" aria-controls="page4" aria-selected="false" id="tab4">Page 4: Characters & Objects</button>
+    <button class="tab" role="tab" aria-controls="page5" aria-selected="false" id="tab5">Page 5: Settings</button>
+  </nav>
+
+  <main>
+    <section id="page1" class="page active" role="tabpanel" aria-labelledby="tab1">
+      <div class="stageWrap">
+        <div class="leftRail">
+          <button id="hideAllNames" class="btn">Hide</button>
+          <button id="cornerPlayStop" class="btn">▶️</button>
+          <button id="revealBtn" class="btn">Reveal</button>
+          <button id="nextPhoto" class="btn">Next</button>
+        </div>
+        <div class="stage">
+          <div class="imgwrap" id="imgwrap"></div>
+          <div class="nameOverlay collapsed" id="nameBar">
+            <div class="title" id="entityName">&nbsp;</div>
+            <div class="tags" id="entityTags"></div>
+          </div>
+          <div style="position:absolute; inset:0; display:grid; grid-template-columns:95px 1fr; pointer-events:none">
+            <div></div>
+            <div style="position:relative; pointer-events:auto">
+              <div id="zonePrev" style="position:absolute;left:0;top:0;bottom:0;width:35%"></div>
+              <div id="zoneNext" style="position:absolute;right:0;top:0;bottom:0;width:65%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="page2" class="page" role="tabpanel" aria-labelledby="tab2">
+      <div class="builder">
+        <div class="grid" id="gridOcc"></div>
+        <div class="rowActions"><button class="btn" id="clearAll2" title="Clear all selections">Clear All</button></div>
+      </div>
+    </section>
+
+    <section id="page3" class="page" role="tabpanel" aria-labelledby="tab3">
+      <div class="builder">
+        <div class="grid" id="gridNat"></div>
+        <div class="rowActions"><button class="btn" id="clearAll3">Clear All</button></div>
+      </div>
+    </section>
+
+    <section id="page4" class="page" role="tabpanel" aria-labelledby="tab4">
+      <div class="builder">
+        <div class="grid" id="gridObj"></div>
+        <div class="rowActions"><button class="btn" id="clearAll4">Clear All</button></div>
+      </div>
+    </section>
+
+    <section id="page5" class="page" role="tabpanel" aria-labelledby="tab5">
+      <div class="builder" style="max-width:720px; display:grid; gap:12px">
+        <div><strong>Slide speed</strong> (seconds)</div>
+        <input id="speedInput" type="number" step="0.2" min="0.2" value="5" />
+        <div><strong>Name reveal delay</strong> (seconds)</div>
+        <input id="revealInput" type="number" step="0.2" min="0" value="3" />
+        <div class="rowActions">
+          <button class="btn" id="applySettings">Apply settings</button>
+          <span id="settingsNote" style="color:#9fb7d6"></span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div>
+      PC: <em>Right-side keys</em> ⇒ Next, <em>Left-side keys</em> ⇒ Previous. <kbd>S</kbd> ⇒ Reveal (this slide). <kbd>Space</kbd> ⇒ Play/Pause. <kbd>Alt</kbd>+<kbd>C</kbd> ⇒ Clear All.
+      Mobile: swipe left/right to switch pages; tap left/right of photo for prev/next. Triple-click a tile to rename.
+    </div>
+    <div class="sp"></div>
+    <a href="#" id="downloadLink" title="Download current image">Download</a>
+  </footer>
+
+<script>
+(function(){
+  /* Tabs / Pages */
+  const tabs=[1,2,3,4,5].map(i=>({tab:document.getElementById('tab'+i),page:document.getElementById('page'+i)}));
+  function activePageIndex(){ return tabs.findIndex(t=> t.page.classList.contains('active')); }
+  function setPage(idx){ tabs.forEach((t,i)=>{ const on=(i===idx-1); t.page.classList.toggle('active', on); t.tab.setAttribute('aria-selected', String(on)); }); }
+  tabs.forEach((t,i)=> t.tab.addEventListener('click',()=> setPage(i+1)));
+  document.getElementById('gearBtn').addEventListener('click', ()=>{ const i=activePageIndex()+1; setPage(i===5?1:5); });
+
+  /* Swipe pages */
+  let tStart=null;
+  document.addEventListener('touchstart', e=>{ const t=e.touches[0]; tStart={x:t.clientX,y:t.clientY}; }, {passive:true});
+  document.addEventListener('touchend', e=>{ if(!tStart) return; const t=e.changedTouches[0]; const dx=t.clientX-tStart.x, dy=t.clientY-tStart.y; if(Math.abs(dx)>40 && Math.abs(dy)<60){ const i=activePageIndex()+1; if(dx<0 && i<5) setPage(i+1); if(dx>0 && i>1) setPage(i-1); } tStart=null; }, {passive:true});
+
+  /* Presets */
+  const OCC = { 'Actors':'Q33999','Singers':'Q177220','Musicians':'Q639669','Writers':'Q36180','Models':'Q4610556','Politicians':'Q82955','Directors':'Q2526255','Comedians':'Q245068','Scientists':'Q901','Inventors':'Q131524' };
+  const NAT = { 'Norwegian':'Q20','Swedish':'Q34','Danish':'Q35','German':'Q183','French':'Q142','Spanish':'Q29','British':'Q145','American':'Q30' };
+  const OBJ = [ 'Famous movie characters','Famous cartoon characters','Superheroes','Video game characters','Cars','Musical instruments','Tools','Household appliances' ];
+
+  const gridOcc=document.getElementById('gridOcc'), gridNat=document.getElementById('gridNat'), gridObj=document.getElementById('gridObj');
+  function makeTile(label, gridEl){
+    const btn=document.createElement('button');
+    btn.type='button'; btn.className='termBtn'; btn.textContent=label; btn.dataset.term=label; btn.dataset.clicks='0';
+    btn.addEventListener('click', ()=>{
+      const c=(+btn.dataset.clicks||0)+1; btn.dataset.clicks=String(c);
+      if(c>=3){ // rename
+        btn.dataset.clicks='0'; btn.classList.add('editing');
+        const prev=btn.dataset.term; const input=document.createElement('input'); input.type='text'; input.value=prev; input.style.width='100%';
+        const finish=()=>{ const v=input.value.trim()||prev; btn.dataset.term=v; btn.textContent=v; btn.classList.remove('editing'); autoApply(); };
+        input.addEventListener('keydown',(e)=>{ if(e.key==='Enter') finish(); });
+        input.addEventListener('blur',finish);
+        btn.innerHTML=''; btn.appendChild(input); input.focus(); input.select(); return;
+      }
+      btn.classList.toggle('selected');
+      setTimeout(()=>{ btn.dataset.clicks='0'; }, 280);
+      autoApply();
+    });
+    gridEl.appendChild(btn);
+    return btn;
+  }
+  Object.keys(OCC).forEach(k=> makeTile(k, gridOcc));
+  Object.keys(NAT).forEach(k=> makeTile(k, gridNat));
+  OBJ.forEach(k=> makeTile(k, gridObj));
+
+  /* Selection helpers */
+  function selectedFrom(gridEl){ return [...gridEl.querySelectorAll('.termBtn.selected')].map(b=> b.dataset.term||b.textContent.trim()); }
+  function selectedAll(){ return { occ:selectedFrom(gridOcc), nat:selectedFrom(gridNat), obj:selectedFrom(gridObj) }; }
+
+  /* Settings */
+  let slideSeconds=5, nameDelay=3000;
+  document.getElementById('applySettings').onclick=()=>{
+    slideSeconds=Math.max(0.2, +document.getElementById('speedInput').value||5);
+    nameDelay=Math.max(0, (+document.getElementById('revealInput').value||3)*1000);
+    document.getElementById('settingsNote').textContent=`Applied: slide ${slideSeconds.toFixed(1)}s, reveal ${(nameDelay/1000).toFixed(1)}s.`;
+    if(autoplay) startAutoplay();
+  };
+
+  /* SPARQL blocks */
+  function H(lines){ return `{ ?person wdt:P31 wd:Q5 ; ${lines.join(' ')} wdt:P18 ?image . BIND(?person AS ?entity) }`; }
+  function F(lines){ return `{ ?person wdt:P18 ?image . ${lines.join(' ')} BIND(?person AS ?entity) }`; }
+  function T(lines){ return `{ ?thing ${lines.join(' ')} wdt:P18 ?image . BIND(?thing AS ?entity) }`; }
+
+  function blockForObject(label){
+    if(label==='Famous movie characters') return F([ ' ?person wdt:P31 wd:Q15773347 . ' ]);
+    if(label==='Famous cartoon characters') return F([ ' { ?person wdt:P31 wd:Q15711870 . } UNION { ?person wdt:P31 wd:Q373494 . } ' ]);
+    if(label==='Superheroes') return F([ ' ?person wdt:P31 wd:Q188784 . ' ]);
+    if(label==='Video game characters') return F([ ' ?person wdt:P31 wd:Q95074 . ' ]);
+    if(label==='Cars') return T([ ' ?thing wdt:P31 wd:Q3231690 . ' ]);
+    if(label==='Musical instruments') return T([ ' ?thing wdt:P31/wdt:P279* wd:Q34379 . ' ]);
+    if(label==='Tools') return T([ ' ?thing wdt:P31/wdt:P279* wd:Q39546 . ' ]);
+    if(label==='Household appliances') return T([ ' ?thing wdt:P31/wdt:P279* wd:Q319541 . ' ]);
+    return null;
+  }
+
+  // Build blocks from current selection with intersection logic
+  function buildBlocks({occ, nat, obj}){
+    const blocks=[];
+    const occQ = occ.map(o=> OCC[o]).filter(Boolean);
+    const natQ = nat.map(n=> NAT[n]).filter(Boolean);
+
+    // Intersections: every combination of (occ × nat)
+    if(occQ.length && natQ.length){
+      for(const oq of occQ){
+        for(const nq of natQ){
+          blocks.push({ tag: `${getKeyByValue(OCC, oq)} + ${getKeyByValue(NAT, nq)}`, block: H([ `wdt:P106 wd:${oq} ;`, `wdt:P27 wd:${nq} ;` ]) });
+        }
+      }
+    }
+
+    // Solo occupation blocks (if no nationality selected)
+    if(occQ.length && !natQ.length){
+      for(const oq of occQ){
+        blocks.push({ tag: `${getKeyByValue(OCC, oq)}`, block: H([ `wdt:P106 wd:${oq} ;` ]) });
+      }
+    }
+
+    // Solo nationality blocks (if no occupation selected)
+    if(natQ.length && !occQ.length){
+      for(const nq of natQ){
+        blocks.push({ tag: `${getKeyByValue(NAT, nq)}`, block: H([ `wdt:P27 wd:${nq} ;` ]) });
+      }
+    }
+
+    // Objects/characters (independent)
+    for(const label of obj){
+      const b = blockForObject(label);
+      if(b) blocks.push({ tag: label, block: b });
+    }
+
+    // If nothing chosen, default to Actors
+    if(!blocks.length){
+      blocks.push({ tag:'Actors', block:H([ `wdt:P106 wd:${OCC['Actors']} ;` ]) });
+    }
+    return blocks;
+  }
+  function getKeyByValue(obj, val){ return Object.keys(obj).find(k=> obj[k]===val) || ''; }
+
+  function buildQuery(block, limit=200){
+    return `SELECT ?entity ?entityLabel ?image WHERE {
+${block}
+SERVICE wikibase:label { bd:serviceParam wikibase:language "nb,nn,no,en". }
+} LIMIT ${limit}`;
+  }
+
+  async function sparqlQuery(query){
+    const endpoint='https://query.wikidata.org/sparql';
+    const body=new URLSearchParams(); body.set('query', query);
+    const res=await fetch(endpoint,{method:'POST',mode:'cors',headers:{'Accept':'application/sparql-results+json','Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body});
+    if(!res.ok){ const t=await res.text().catch(()=> ''); throw new Error('WDQS '+res.status+' '+t.slice(0,120)); }
+    return await res.json();
+  }
+
+  function toThumb(imageVal){
+    let fileName = imageVal;
+    try{ if(fileName.startsWith('http')){ const u=new URL(fileName); const last=decodeURIComponent(u.pathname.split('/').pop()); fileName=last.replace(/^.*File:/,'File:'); } }catch{}
+    if(!/^File:/i.test(fileName)){ fileName='File:'+fileName.replace(/^.*File:/,''); }
+    const bare=encodeURIComponent(fileName.replace(/^File:/,''));
+    return { url:`https://commons.wikimedia.org/w/thumb.php?f=${bare}&w=1600`, title:`File:${fileName.replace(/^File:/,'')}` };
+  }
+
+  function normalizeRow(r, tag){
+    const name=r.entityLabel?.value || 'Untitled';
+    const imageVal=r.image?.value || '';
+    if(!imageVal) return null;
+    const {url,title}=toThumb(imageVal);
+    const itemUrl=r.entity?.value || '#';
+    const key=itemUrl && itemUrl!=='#' ? itemUrl : url;
+    return { key, name, imageUrl:url, fileTitle:title, itemUrl, tags:[tag] };
+  }
+
+  /* Fetch + mix */
+  const countBadge=document.getElementById('countBadge');
+  function setCount(n){ countBadge.textContent = n? `${n} photos` : '0 photos'; }
+
+  let items=[]; let currIndex=-1; let autoplay=false; let timer=null; let currentLink='#';
+  const imgwrap=document.getElementById('imgwrap'); const nameBar=document.getElementById('nameBar'); const entityName=document.getElementById('entityName'); const entityTags=document.getElementById('entityTags');
+
+  function roundRobin(lists){
+    const used=new Set(); const out=[]; const dict=new Map();
+    lists.forEach(list=> list.forEach(it=>{ if(!dict.has(it.key)) dict.set(it.key, {...it}); else { const ref=dict.get(it.key); it.tags.forEach(t=>{ if(!ref.tags.includes(t)) ref.tags.push(t); }); } }));
+    const queues = lists.map(list=> list.map(it=>it.key));
+    const maxLen=Math.max(0,...queues.map(q=>q.length));
+    for(let i=0;i<maxLen;i++){
+      for(const q of queues){ const k=q[i]; if(k && !used.has(k)){ used.add(k); out.push(dict.get(k)); } }
+    }
+    return out;
+  }
+
+  function debounce(fn, ms=350){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+  const autoApply = debounce(applySelection, 220);
+
+  let fetchGen=0;
+  async function applySelection(){
+    const gen=++fetchGen;
+    const sel=selectedAll();
+    const blocks=buildBlocks(sel);
+    const perList=[];
+    for(const {tag, block} of blocks){
+      try{
+        const q=buildQuery(block, 180);
+        const data=await sparqlQuery(q);
+        if(gen!==fetchGen) return;
+        const rows=(data.results.bindings||[]).map(r=> normalizeRow(r, tag)).filter(Boolean);
+        perList.push(rows);
+      }catch(e){ console.warn('block failed', tag, e); }
+    }
+    const mixed=roundRobin(perList);
+    if(gen!==fetchGen) return;
+    items=mixed; setCount(items.length);
+    if(!items.length){ imgwrap.innerHTML=''; return; }
+    currIndex=-1; setPage(1); showIndex(0); startAutoplay();
+  }
+
+  /* Slideshow */
+  let currentImg=null; let globalHide=false; let perSlideReveal=false;
+
+  function swapIn(img){
+    const prev=currentImg; currentImg=img; currentImg.classList.add('photo','show');
+    imgwrap.appendChild(currentImg);
+    if(prev){ prev.addEventListener('transitionend', ()=>{ try{ imgwrap.removeChild(prev); }catch{} }, {once:true}); prev.classList.remove('show'); }
+  }
+  async function filePageURL(fileTitle){
+    try{
+      const url='https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&prop=imageinfo&iiprop=url&titles='+encodeURIComponent(fileTitle);
+      const res=await fetch(url); const data=await res.json();
+      const page=data?.query?.pages ? Object.values(data.query.pages)[0] : null;
+      return page?.fullurl || ('https://commons.wikimedia.org/wiki/'+encodeURIComponent(fileTitle));
+    }catch(e){ return 'https://commons.wikimedia.org/wiki/'+encodeURIComponent(fileTitle); }
+  }
+
+  async function showIndex(i){
+    if(!items.length) return;
+    currIndex=(i+items.length)%items.length;
+    const it=items[currIndex];
+    const img=new Image(); img.decoding='async'; img.referrerPolicy='no-referrer';
+    img.onload=async ()=>{
+      swapIn(img);
+      entityName.textContent=it.name;
+      entityTags.textContent=(it.tags||[]).join(' + ');
+      nameBar.classList.add('collapsed');
+      const f = await filePageURL(it.fileTitle).catch(()=> '#');
+      currentLink = it.itemUrl && it.itemUrl!=='#' ? it.itemUrl : (f||'#');
+      setTimeout(()=>{ if(!globalHide || perSlideReveal){ nameBar.classList.remove('collapsed'); } perSlideReveal=false; }, nameDelay);
+      downloadLink.href=it.imageUrl; downloadLink.download=it.fileTitle.replace(/^File:/,'');
+    };
+    img.onerror=()=>{ console.warn('image failed, skipping'); next(); };
+    img.src=it.imageUrl;
+  }
+  function next(){ showIndex((currIndex+1)%items.length); }
+  function prev(){ showIndex((currIndex-1+items.length)%items.length); }
+
+  /* Controls */
+  const playBtn=document.getElementById('cornerPlayStop');
+  const hideBtn=document.getElementById('hideAllNames');
+  const revealBtn=document.getElementById('revealBtn');
+  const nextBtn=document.getElementById('nextPhoto');
+  const openLinkBtn=document.getElementById('openLink');
+  const downloadLink=document.getElementById('downloadLink');
+
+  function startAutoplay(){ if(timer) clearInterval(timer); timer=setInterval(next, (slideSeconds||2)*1000); autoplay=true; playBtn.textContent='⏹'; playBtn.classList.add('playing'); }
+  function stopAutoplay(){ if(timer) clearInterval(timer); timer=null; autoplay=false; playBtn.textContent='▶️'; playBtn.classList.remove('playing'); }
+
+  playBtn.onclick=()=> autoplay? stopAutoplay():startAutoplay();
+  hideBtn.onclick=()=>{ globalHide=!globalHide; nameBar.classList.toggle('collapsed', globalHide); hideBtn.textContent=globalHide?'Show':'Hide'; };
+  revealBtn.onclick=()=>{ perSlideReveal=true; nameBar.classList.remove('collapsed'); };
+  nextBtn.onclick=()=>{ stopAutoplay(); next(); };
+  openLinkBtn.onclick=()=>{ if(currentLink && currentLink!=='#') window.open(currentLink,'_blank','noopener'); };
+
+  document.getElementById('zonePrev').addEventListener('click', ()=>{ stopAutoplay(); prev(); });
+  document.getElementById('zoneNext').addEventListener('click', ()=>{ stopAutoplay(); next(); });
+
+  /* PC keyboard mapping */
+  document.addEventListener('keydown', (e)=>{
+    const tag=(e.target && e.target.tagName)||'';
+    if(tag==='INPUT' || tag==='TEXTAREA') return;
+
+    const key=(e.key||'').toLowerCase();
+    if(e.code==='Space'){ e.preventDefault(); autoplay? stopAutoplay():startAutoplay(); return; }
+    if(key==='s'){ e.preventDefault(); perSlideReveal=true; nameBar.classList.remove('collapsed'); return; }
+
+    // Right-side keys = next, Left-side = previous
+    const leftSet=new Set(['`','1','2','3','4','5','q','w','e','r','t','a','s','d','f','g','z','x','c','v','b']);
+    const rightSet=new Set(['6','7','8','9','0','-','=', 'y','u','i','o','p','[',']','\\','h','j','k','l',';','\'','n','m',',','.','/']);
+
+    if(rightSet.has(key)){ stopAutoplay(); next(); return; }
+    if(leftSet.has(key)){ stopAutoplay(); prev(); return; }
+  });
+
+  // Page arrows still switch pages (outside inputs)
+  document.addEventListener('keydown', (e)=>{
+    const tag=(e.target && e.target.tagName)||'';
+    if(tag==='INPUT' || tag==='TEXTAREA') return;
+    if(e.key==='ArrowRight'){ const i=activePageIndex()+1; if(i<5) setPage(i+1); }
+    if(e.key==='ArrowLeft'){ const i=activePageIndex()+1; if(i>1) setPage(i-1); }
+    if(e.altKey && e.key.toLowerCase()==='c'){ e.preventDefault(); clearAll(); }
+  });
+
+  /* Clear All shared */
+  function clearAll(){
+    document.querySelectorAll('.termBtn.selected').forEach(b=> b.classList.remove('selected'));
+    items=[]; currIndex=-1; setCount(0); stopAutoplay(); imgwrap.innerHTML='';
+  }
+  document.getElementById('clearAll2').onclick=clearAll;
+  document.getElementById('clearAll3').onclick=clearAll;
+  document.getElementById('clearAll4').onclick=clearAll;
+
+  /* Boot: preselect Actors + apply */
+  const actorBtn=[...document.querySelectorAll('#gridOcc .termBtn')].find(b=> (b.dataset.term||b.textContent)==='Actors');
+  if(actorBtn) actorBtn.classList.add('selected');
+  applySelection();
+})();
+</script>
+</body>
+</html>
